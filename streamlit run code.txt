@@ -1,0 +1,9 @@
+streamlit run “D:/Downloads/Sentiment analysis/front-end/pages/nimf_baf.py”
+streamlit run “D:/Downloads/Sentiment analysis/front-end/app.py”
+
+streamlit run "C:/Users/Advait Lath/AppData/Local/Programs/Python/Python310/lib/site-packages/ipykernel_launcher.py"
+
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
