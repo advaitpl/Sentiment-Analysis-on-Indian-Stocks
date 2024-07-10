@@ -1,3 +1,4 @@
+Run the file "sentiment-analysis.ipynb"
 To run this code:
 
 Replace 'your_actual_newsapi_key' with your actual NewsAPI key.
