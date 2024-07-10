@@ -1,4 +1,10 @@
 Run the file "sentiment-analysis.ipynb"
+used Finbert, with >80% accuracy.
+things to improve upon:
+1) more training data
+2) using a scored method
+3) improved accuracy using different models
+   
 To run this code:
 
 Replace 'your_actual_newsapi_key' with your actual NewsAPI key.
