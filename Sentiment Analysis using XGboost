@@ -1,0 +1,92 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.feature_extraction.text import TfidfVectorizer
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import LabelEncoder
+from nltk.corpus import stopwords
+from nltk.stem import SnowballStemmer
+import nltk
+
+# Download stopwords
+nltk.download('stopwords')
+
+# Step 1: Load the Data
+data_path = 'your csv path here'  # Update this path to your data file
+df = pd.read_csv(data_path)
+
+# Inspect the data
+print(df.head())
+
+# Step 2: Preprocess the Data
+# Handling missing values (if any)
+df.dropna(inplace=True)
+
+# Advanced text preprocessing
+stop_words = set(stopwords.words('english'))
+stemmer = SnowballStemmer("english")
+
+def preprocess_text(text):
+    text = text.lower()
+    text = ''.join([char for char in text if char.isalnum() or char.isspace()])
+    text = ' '.join([stemmer.stem(word) for word in text.split() if word not in stop_words])
+    return text
+
+df['cleaned_text'] = df['Sentence'].apply(preprocess_text)  # Correct column name
+
+# Encode labels
+label_encoder = LabelEncoder()
+df['encoded_sentiment'] = label_encoder.fit_transform(df['Sentiment'])
+
+# Verify encoded labels
+print("Encoded Sentiment Classes:", np.unique(df['encoded_sentiment']))
+
+# Step 3: Feature Extraction and Model Training with Pipeline
+pipeline = Pipeline([
+    ('tfidf', TfidfVectorizer(max_features=5000, ngram_range=(1, 2))),  # Including n-grams
+    ('clf', XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='logloss'))
+])
+
+# Hyperparameter tuning
+param_grid = {
+    'clf__n_estimators': [100, 200, 300],
+    'clf__max_depth': [3, 5, 7],
+    'clf__learning_rate': [0.01, 0.1, 0.3],
+    'clf__subsample': [0.7, 0.8, 0.9],
+    'clf__colsample_bytree': [0.7, 0.8, 0.9]
+}
+
+grid_search = GridSearchCV(pipeline, param_grid, cv=5, n_jobs=-1, verbose=1)
+
+# Split the data
+X = df['cleaned_text']
+y = df['encoded_sentiment']  # Use encoded labels
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train the model with hyperparameter tuning
+grid_search.fit(X_train, y_train)
+
+# Best model
+best_model = grid_search.best_estimator_
+
+# Step 5: Evaluate the Model
+y_pred = best_model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred, average='weighted')
+recall = recall_score(y_test, y_pred, average='weighted')
+f1 = f1_score(y_test, y_pred, average='weighted')
+
+print(f'Accuracy: {accuracy:.4f}')
+print(f'Precision: {precision:.4f}')
+print(f'Recall: {recall:.4f}')
+print(f'F1 Score: {f1:.4f}')
+
+# Optional: Save the Model
+import joblib
+joblib.dump(best_model, 'financial_sentiment_model.pkl')
+joblib.dump(grid_search.best_params_, 'best_params.pkl')
+
+# Save the label encoder
+joblib.dump(label_encoder, 'label_encoder.pkl')
