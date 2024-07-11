@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 nltk.download('stopwords')
 
 # Step 1: Load the Data
-data_path = '/Users/shubhishyamsukha/Downloads/data.csv'  # Update this path to your data file
+data_path = 'Data 2.numbers'  # Update this path to your data file
 try:
     df = pd.read_csv(data_path)
     logging.info("Data loaded successfully.")
