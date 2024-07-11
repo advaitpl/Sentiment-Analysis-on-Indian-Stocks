@@ -14,7 +14,7 @@ import nltk
 nltk.download('stopwords')
 
 # Step 1: Load the Data
-data_path = 'your csv path here'  # Update this path to your data file
+data_path = 'data 2.numbers file path'  # Update this path to your data file
 df = pd.read_csv(data_path)
 
 # Inspect the data
