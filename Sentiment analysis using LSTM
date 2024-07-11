@@ -1,0 +1,126 @@
+
+import pandas as pd
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout, Bidirectional
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from nltk.corpus import stopwords
+from nltk.stem import SnowballStemmer
+import nltk
+import os
+
+# Download stopwords
+nltk.download('stopwords')
+
+# Step 1: Load the Data
+data_path = 'data 2.csv'  # Update this path to your data file
+df = pd.read_csv(data_path)
+
+# Inspect the data
+print(df.head())
+
+# Step 2: Preprocess the Data
+# Handling missing values (if any)
+df.dropna(inplace=True)
+
+# Advanced text preprocessing
+stop_words = set(stopwords.words('english'))
+stemmer = SnowballStemmer("english")
+
+def preprocess_text(text):
+    text = text.lower()
+    text = ''.join([char for char in text if char.isalnum() or char.isspace()])
+    text = ' '.join([stemmer.stem(word) for word in text.split() if word not in stop_words])
+    return text
+
+df['cleaned_text'] = df['Sentence'].apply(preprocess_text)  # Correct column name
+
+# Encode labels
+label_encoder = LabelEncoder()
+df['encoded_sentiment'] = label_encoder.fit_transform(df['Sentiment'])
+
+# Verify encoded labels
+print("Encoded Sentiment Classes:", np.unique(df['encoded_sentiment']))
+
+# Step 3: Tokenize and Pad Text Data
+tokenizer = Tokenizer(num_words=5000)
+tokenizer.fit_on_texts(df['cleaned_text'])
+X = tokenizer.texts_to_sequences(df['cleaned_text'])
+X = pad_sequences(X, maxlen=100)
+
+y = df['encoded_sentiment']
+
+# Split the data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Load GloVe embeddings
+def load_glove_embeddings(glove_path):
+    embeddings_index = {}
+    with open(glove_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            values = line.split()
+            word = values[0]
+            coeffs = np.asarray(values[1:], dtype='float32')
+            embeddings_index[word] = coeffs
+    return embeddings_index
+
+glove_path = '/Users/shubhishyamsukha/Downloads/glove.6B.100d.txt'  # Update this path to your GloVe file
+embeddings_index = load_glove_embeddings(glove_path)
+
+# Create an embedding matrix
+embedding_dim = 100
+word_index = tokenizer.word_index
+embedding_matrix = np.zeros((len(word_index) + 1, embedding_dim))
+for word, i in word_index.items():
+    embedding_vector = embeddings_index.get(word)
+    if embedding_vector is not None:
+        embedding_matrix[i] = embedding_vector
+
+# Step 4: Build the LSTM Model with Pre-trained Embeddings
+model = Sequential()
+model.add(Embedding(input_dim=len(word_index) + 1,
+                    output_dim=embedding_dim,
+                    weights=[embedding_matrix],
+                    input_length=100,
+                    trainable=False))
+model.add(Bidirectional(LSTM(128, return_sequences=True)))
+model.add(Dropout(0.5))
+model.add(Bidirectional(LSTM(64)))
+model.add(Dropout(0.5))
+model.add(Dense(3, activation='softmax'))  # 3 classes: positive, negative, neutral
+
+model.compile(loss='sparse_categorical_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+# Step 5: Train the Model
+history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
+
+# Step 6: Evaluate the Model
+y_pred_prob = model.predict(X_test)
+y_pred = np.argmax(y_pred_prob, axis=1)
+
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred, average='weighted')
+recall = recall_score(y_test, y_pred, average='weighted')
+f1 = f1_score(y_test, y_pred, average='weighted')
+
+print(f'Accuracy: {accuracy:.4f}')
+print(f'Precision: {precision:.4f}')
+print(f'Recall: {recall:.4f}')
+print(f'F1 Score: {f1:.4f}')
+
+# Optional: Save the Model
+model.save('financial_sentiment_model.h5')
+tokenizer_json = tokenizer.to_json()
+with open('tokenizer.json', 'w') as f:
+    f.write(tokenizer_json)
+
+# Save the label encoder
+import joblib
+joblib.dump(label_encoder, 'label_encoder.pkl')
